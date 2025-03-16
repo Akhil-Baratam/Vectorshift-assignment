@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import {
     Box,
-    TextField,
     Button,
     Table,
     TableBody,
@@ -38,7 +37,7 @@ export const DataForm = ({ integrationType, credentials }) => {
     }
 
     const renderData = () => {
-        if (!loadedData) return null;
+        if (!loadedData) return null; 
         
         return (
             <TableContainer component={Paper} sx={{ mt: 2 }}>

@@ -9,27 +9,23 @@ import base64
 import requests
 import hashlib
 from dotenv import load_dotenv
-from urllib.parse import urlencode
+from urllib.parse import urlencode 
 
 
 from integrations.integration_item import IntegrationItem
 
 from redis_client import add_key_value_redis, get_value_redis, delete_key_redis
 
-# Load environment variables
 load_dotenv()
 
-# Fetch OAuth credentials from .env file
 CLIENT_ID = os.getenv("HUBSPOT_CLIENT_ID")
 CLIENT_SECRET = os.getenv("HUBSPOT_CLIENT_SECRET")
 REDIRECT_URI = os.getenv("HUBSPOT_REDIRECT_URI")
-authorization_url=f'https://app-na2.hubspot.com/oauth/authorize?client_id={CLIENT_ID}&redirect_uri=http://localhost:8000/integrations/hubspot/callback&scope=crm.objects.contacts.write%20oauth%20crm.objects.companies.read%20crm.lists.read%20crm.objects.deals.read%20crm.schemas.contacts.read%20crm.objects.deals.write%20crm.objects.contacts.read'
 
 
 async def authorize_hubspot(user_id, org_id):
     """Generates the OAuth authorization URL for HubSpot."""
     
-    # Generate state data for security
     state_data = {
         "state": secrets.token_urlsafe(32),
         "user_id": user_id,
@@ -76,17 +72,17 @@ async def authorize_hubspot(user_id, org_id):
 async def oauth2callback_hubspot(request: Request):
     """Handles HubSpot OAuth callback, exchanges auth code for access token."""
 
-    # 1️⃣ Handle OAuth error responses
+
     if request.query_params.get("error"):
         raise HTTPException(status_code=400, detail=request.query_params.get("error"))
 
-    # 2️⃣ Extract 'code' and 'state' from request query params
+
     code = request.query_params.get("code")
     encoded_state = request.query_params.get("state")
 
     print(f"Incoming callback - Code: {code}, State: {encoded_state}")
 
-    # 3️⃣ Decode state and extract user_id & org_id
+
     try:
         state_data = json.loads(base64.urlsafe_b64decode(encoded_state).decode("utf-8"))
         original_state = state_data.get("state")
@@ -95,7 +91,6 @@ async def oauth2callback_hubspot(request: Request):
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid state parameter")
 
-    # 4️⃣ Retrieve and validate stored state from Redis
     saved_state, code_verifier = await asyncio.gather(
         get_value_redis(f"hubspot_state:{org_id}:{user_id}"),
         get_value_redis(f"hubspot_verifier:{org_id}:{user_id}")
@@ -112,7 +107,6 @@ async def oauth2callback_hubspot(request: Request):
         raise HTTPException(status_code=400, detail="State validation failed.")
 
 
-    # 5️⃣ Exchange the code for an access token
     async with httpx.AsyncClient() as client:
         response, _, _ = await asyncio.gather(
             client.post(
@@ -136,10 +130,8 @@ async def oauth2callback_hubspot(request: Request):
     if response.status_code != 200:
         raise HTTPException(status_code=400, detail="Failed to exchange authorization code.")
 
-    # 6️⃣ Store tokens in Redis
     await add_key_value_redis(f"hubspot_credentials:{org_id}:{user_id}", json.dumps(response.json()), expire=600)
 
-    # 7️⃣ Return HTML to close OAuth popup window (same as Airtable & Notion)
     close_window_script = """
     <html>
         <script>
@@ -162,7 +154,7 @@ async def get_hubspot_credentials(user_id: str, org_id: str):
 async def create_integration_item_metadata_object(response_json: str) -> IntegrationItem:
     integration_item_metadata = IntegrationItem(
         id=response_json.get('id', None),
-        name=response_json.get('firstname', None),
+        name=response_json.get('properties', {}).get('firstname', None),
         type='contact',
         creation_time=response_json.get('createdAt', None),
         last_modified_time=response_json.get('updatedAt',None)
@@ -183,6 +175,7 @@ async def get_items_hubspot(credentials) -> list[IntegrationItem]:
 
         if response.status_code == 200:
             results = response.json()['results']
+            print(f'Resulted Data', results)
             coroutines = [create_integration_item_metadata_object(result) for result in results]
             list_of_integration_item_metadata = await asyncio.gather(*coroutines)
             

@@ -10,7 +10,6 @@ export const HubspotIntegration = ({ user, org, integrationParams, setIntegratio
     const [isConnected, setIsConnected] = useState(false);
     const [isConnecting, setIsConnecting] = useState(false);
 
-    // Function to open OAuth in a new window
     const handleConnectClick = async () => {
         try {
             setIsConnecting(true);
@@ -22,7 +21,6 @@ export const HubspotIntegration = ({ user, org, integrationParams, setIntegratio
 
             const newWindow = window.open(authURL, 'HubSpot Authorization', 'width=600, height=600');
 
-            // Polling for the window to close
             const pollTimer = window.setInterval(() => {
                 if (newWindow?.closed !== false) { 
                     window.clearInterval(pollTimer);
@@ -35,7 +33,6 @@ export const HubspotIntegration = ({ user, org, integrationParams, setIntegratio
         }
     }
 
-    // Function to handle logic when the OAuth window closes
     const handleWindowClosed = async () => {
         try {
             const formData = new FormData(); 
@@ -82,3 +79,4 @@ export const HubspotIntegration = ({ user, org, integrationParams, setIntegratio
       </>
     );
 }
+ 
